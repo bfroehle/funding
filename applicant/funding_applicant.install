@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * Implements hook_field_schema().
+ */
+function funding_applicant_field_schema() {
+  $columns = array(
+    'applicant' => array(
+      'description' => "The funding applicant's CalNet UID or student group code.",
+      'type' => 'varchar',
+      'length' => '128',
+      'not null' => TRUE,
+      'default' => '',
+    ),
+  );
+
+  return array(
+    'columns' => $columns,
+  );
+}
+

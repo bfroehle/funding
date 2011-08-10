@@ -1,0 +1,7 @@
+name = Funding
+description = @todo
+core = 7.x
+package = GA Funding
+
+dependencies[] = entity
+configure = admin/funding

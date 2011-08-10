@@ -1,0 +1,156 @@
+<?php
+
+/**
+ * Implements hook_field_info().
+ */
+function funding_applicant_field_info() {
+  $fields = array();
+
+  $fields['funding_applicant'] = array(
+    'label' => t('Funding Applicant'),
+    'description' => t('A field type used for storing the funding applicant, either a CalNet UID or Student Group code.'),
+    'settings' => array(),
+    'instance settings' => array(),
+    'default_widget' => 'funding_applicant_calnet_uid',
+    'default_formatter' => 'funding_applicant_default',
+  );
+
+  dpm(debug_backtrace());
+  return $fields;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function funding_applicant_field_widget_info() {
+  $widgets = array();
+
+  $widgets['funding_applicant_calnet_uid'] = array(
+    'label' => t('CalNet UID'),
+    'field types' => array('funding_applicant'),
+    'settings' => array(
+      'user_selectable' => FALSE,
+    ),
+  );
+
+  $widgets['funding_applicant_student_group'] = array(
+    'label' => t('Student Group'),
+    'field types' => array('funding_applicant'),
+    'settings' => array(
+      'user_selectable' => FALSE,
+      'require_active' => TRUE,
+    ),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function funding_applicant_field_widget_settings_form($field, $instance) {
+  $widget = $instance['widget'];
+  $defaults = field_info_widget_settings($widget['type']);
+  $settings = array_merge($defaults, $widget['settings']);
+
+  $form = array();
+
+  if ($widget['type'] == 'funding_applicant_calnet_uid') {
+    $form['user_selectable'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow write-in CalNet UID.'),
+      '#default_value' => $settings['user_selectable'],
+    );
+  }
+  elseif ($widget['type'] == 'funding_applicant_student_group') {
+    $form['user_selectable'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow write-in student group.'),
+      '#default_value' => $settings['user_selectable'],
+    );
+    $form['require_active'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Require student group is active.'),
+      '#default_value' => $settings['require_active'],
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function funding_applicant_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  global $user;
+  $settings = $instance['widget']['settings'];
+
+  if ($instance['widget']['type'] == 'funding_applicant_calnet_uid') {
+
+    // Present a write in form if the user can edit the field.
+    if ($settings['user_selectable'] || user_access('administer funding applications')) {
+      $element += array(
+        '#type' => 'textfield',
+        '#default_value' => isset($items[$delta]['applicant']) ? $items[$delta]['applicant'] : NULL,
+        '#maxlength' => 128,
+      );
+    }
+    else {
+      $element += array(
+        '#type' => 'value',
+        '#value' => $user->cas_name,
+      );
+    }
+
+  }
+  elseif ($instance['widget']['type'] == 'funding_applicant_student_group') {
+
+    // Present a write in form if the user can edit the field.
+    if ($settings['user_selectable'] || user_access('administer funding applications')) {
+      $element += array(
+        '#type' => 'textfield',
+        '#default_value' => isset($items[$delta]['applicant']) ? $items[$delta]['applicant'] : NULL,
+        '#maxlength' => 128,
+      );
+    }
+    else {
+      // @todo: Fix this!
+      $element += array(
+        '#type' => 'select',
+        '#options' => array(
+          'ASS' => t('Astronomy Students Society'),
+          'DLS' => t('Dead Logicians Society'),
+          'MGSA' => t('Math Graduate Student Association'),
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function funding_applicant_field_formatter_info() {
+  return array(
+    'funding_applicant_default' => array(
+      'label' => t('Text'),
+      'field types' => array('funding_application'),
+      'settings' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function funding_applicant_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $settings = $display['settings'];
+  $element = array();
+  if ($display['type'] == 'funding_applicant_default') {
+    foreach ($items as $delta => $applicant) {
+      $element[$delta]['#markup'] = check_plain($applicant);
+    }
+  }
+  return $element;
+}
+

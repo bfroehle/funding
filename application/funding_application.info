@@ -1,0 +1,10 @@
+name = Funding Application
+description = Funding application entity type.
+core = 7.x
+package = GA Funding
+
+dependencies[] = funding
+dependencies[] = entity
+configure = admin/funding/applications
+
+files[] = funding_application.admin.inc

@@ -1,0 +1,6 @@
+name = Funding Applicant
+description = Provides the funding applicant field.
+core = 7.x
+package = GA Funding
+
+dependencies[] = cas

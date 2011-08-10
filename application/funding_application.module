@@ -1,0 +1,194 @@
+<?php
+
+function funding_application_entity_info() {
+  $return = array();
+
+  $return['funding_application'] = array(
+    'label' => t('Funding Application'),
+    'entity class' => 'FundingApplication',
+    'base table' => 'funding_application',
+    'fieldable' => TRUE,
+    'view modes' => array(
+      'administrator' => array(
+        'label' => t('Administrator'),
+        'custom settings' => FALSE,
+      ),
+      'applicant' => array(
+        'label' => t('Applicant'),
+        'custom settings' => FALSE,
+      ),
+    ),
+    'entity keys' => array(
+      'id' => 'application_id',
+      'bundle' => 'type',
+    ),
+    'bundles' => array(),
+    'bundle keys' => array(
+      'bundle' => 'type',
+    ),
+    'label callback' => 'entity_class_label',
+    'uri callback' => 'entity_class_uri',
+    'access callback' => 'funding_access',
+    'module' => 'funding_application',
+    'metadata controller class' => 'FundingApplicationMetadataController'
+  );
+
+  $return['funding_application_type'] = array(
+    'label' => t('Funding Application type'),
+    'entity class' => 'FundingApplicationType',
+    'controller class' => 'EntityAPIControllerExportable',
+    'base table' => 'funding_application_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'funding_application',
+    'exportable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ),
+    'access callback' => 'funding_application_type_access',
+    'module' => 'funding_application',
+    'admin ui' => array(
+      'path' => 'admin/funding/applications',
+      'file' => 'funding_application.admin.inc',
+      'controller class' => 'FundingApplicationTypeUIController',
+    ),
+  );
+
+  return $return;
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Use this hook to specify profile bundles to avoid a recursion, as loading
+ * the profile types needs the entity info too.
+ */
+function funding_application_entity_info_alter(&$entity_info) {
+  foreach (funding_application_get_types() as $type => $info) {
+    $entity_info['funding_application']['bundles'][$type] = array(
+      'label' => $info->label,
+      'admin' => array(
+        'path' => 'admin/funding/applications/manage/%funding_application_type',
+        'real path' => 'admin/funding/applications/manage/' . $type,
+        'bundle argument' => 4,
+        'access arguments' => array('administer funding applications'),
+      ),
+    );
+  }
+}
+
+/**
+ * Menu argument loader; Load a funding application type by string.
+ *
+ * @param $type
+ *   The machine-readable name of a application type to load.
+ * @return
+ *   A application type array or FALSE if $type does not exist.
+ */
+function funding_application_type_load($type) {
+  return funding_application_get_types($type);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function funding_application_permission() {
+  $permissions = array(
+    'administer funding application types' => array(
+      'title' => t('Administer funding application types'),
+      'description' => t('Create and delete fields on funding applications, and set their permissions.'),
+    ),
+    'administer funding applications' => array(
+      'title' => t('Administer funding applications'),
+      'description' => t('Edit and view all funding applications.'),
+    ),
+  );
+
+  return $permissions;
+}
+
+/**
+ * Gets an array of all application types, keyed by the type name.
+ *
+ * @param $type_name
+ *   If set, the type with the given name is returned.
+ * @return FundingApplicationType[]
+ *   Depending whether $type isset, an array of application types or a single one.
+ */
+function funding_application_get_types($type_name = NULL) {
+  $types = entity_load_multiple_by_name('funding_application_type', isset($type_name) ? array($type_name) : FALSE);
+  return isset($type_name) ? reset($types) : $types;
+}
+
+/**
+ * Determines whether the given user has access to a funding application.
+ *
+ * @param $op
+ *   The operation being performed. One of 'view', 'update', 'create', 'delete'
+ *   or just 'edit' (being the same as 'create' or 'update').
+ * @param $application
+ *   (optional) An application to check access for. If nothing is given, access for
+ *   all applications is determined.
+ * @param $account
+ *   The user to check for. Leave it to NULL to check for the global user.
+ *
+ * @return boolean
+ *   Whether access is allowed or not.
+ */
+function funding_application_access($op, $application = NULL, $account = NULL) {
+  if (user_access('administer funding application types', $account)) {
+    return TRUE;
+  }
+  if ($op == 'create' || $op == 'update') {
+    $op = 'edit';
+  }
+  // Allow modules to grant / deny access.
+  $access = module_invoke_all('funding_application_access', $op, $application, $account);
+
+  // Only grant access if at least one module granted access and no one denied
+  // access.
+  if (in_array(FALSE, $access, TRUE)) {
+    return FALSE;
+  }
+  elseif (in_array(TRUE, $access, TRUE)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_funding_application_access().
+ */
+function funding_application_funding_application_access($op, $application = NULL, $account = NULL) {
+  // @todo: put all of the logic in here!
+}
+
+/**
+ * Access callback for the entity API.
+ */
+function funding_application_type_access($op, $type = NULL, $account = NULL) {
+  return user_access('administer funding application types', $account);
+}
+
+/**
+ *
+ */
+class FundingApplicationType extends Entity {
+  public $type;
+  public $label;
+
+  public function __construct($values = array()) {
+    parent::__construct($values, 'funding_application_type');
+  }
+
+  /**
+   * Returns whether the application type is locked, thus may not be deleted or renamed.
+   *
+   * Application types provided in code are automatically treated as locked, as well
+   * as any fixed profile type.
+   */
+  public function isLocked() {
+    return isset($this->status) && empty($this->is_new) && (($this->status & ENTITY_IN_CODE) || ($this->status & ENTITY_FIXED));
+  }
+}
